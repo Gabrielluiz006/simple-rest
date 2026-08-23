@@ -4,7 +4,7 @@ name: Deploy to Production Aula DevOps
 on:
   push:
     branches:
-      - main
+      - master
 
 # Configuração dos jobs do workflow
 jobs:
