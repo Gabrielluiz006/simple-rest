@@ -15,7 +15,6 @@ public class HealthController {
     }
 
     record HealthResponse(String httpStatus, String description) {
-
     }
 
 }
