@@ -1,0 +1,33 @@
+name: Deploy to Production Aula DevOps
+
+# Definir os gatilhos para o workflow
+on:
+  push:
+    branches:
+      - main
+
+# Configuração dos jobs do workflow
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checar o código do repositório
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Configurar Java
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # 3. Executar testes
+      - name: Run tests
+        run: mvn test
+
+      # 4. Compilar a aplicação
+      - name: Build the application
+        run: mvn package
