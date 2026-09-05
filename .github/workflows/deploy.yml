@@ -39,7 +39,7 @@ jobs:
       - name: Configurar AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::735593913285:role/github-oidc-role
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Login no ECR
