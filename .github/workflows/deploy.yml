@@ -72,4 +72,4 @@ jobs:
               --name minha-api \
               --restart unless-stopped \
               -p 8080:8080 \
-              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/minha-api:latest
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/devops-pucrs-2:latest
