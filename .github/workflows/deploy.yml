@@ -1,60 +1,75 @@
-name: Deploy to Production Aula DevOps
+name: Continuous Deployment
 
-# Definir os gatilhos para o workflow
 on:
   push:
     branches:
       - master
 
-# Configuração dos jobs do workflow
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: minha-api
+  CONTAINER_NAME: minha-api
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checar o código do repositório
-      - name: Checkout code
+
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Configurar Java
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '21'
-          distribution: 'temurin'
           cache: maven
 
-      # 3. Executar testes
-      - name: Run tests
+      - name: Testes
         run: mvn test
 
-      # 4. Compilar a aplicação
-      - name: Build the application
-        run: mvn package
+      - name: Build
+        run: mvn clean package -DskipTests
 
-      # 5. Configurar Terraform
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      # 6. Configurar credenciais AWS
-      - name: Configure AWS credentials
+      - name: Configurar AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      # 7. Inicializar Terraform
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
+      - name: Login no ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # 8. Verificar o plano de infraestrutura
-      - name: Terraform Plan
-        working-directory: terraform
-        run: terraform plan
+      - name: Build da imagem
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest .
 
-      # 9. Criar infraestrutura
-      - name: Terraform Apply
-        working-directory: terraform
-        run: terraform apply -auto-approve
+      - name: Push para ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+
+      - name: Deploy na EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/minha-api:latest
+
+            docker stop minha-api || true
+            docker rm minha-api || true
+
+            docker run -d \
+              --name minha-api \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/minha-api:latest
